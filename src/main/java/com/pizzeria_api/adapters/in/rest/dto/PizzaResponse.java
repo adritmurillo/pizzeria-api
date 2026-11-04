@@ -12,7 +12,7 @@ public record PizzaResponse(
         String name,
         String description,
         BigDecimal price,
-        PizzaSize pizzaSize,
+        PizzaSize size,
         PizzaCategory category,
         boolean available
 ) {
