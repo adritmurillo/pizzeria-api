@@ -19,7 +19,7 @@ public class Order {
     private final LocalDateTime createdAt;
 
     public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items){
-        if (customerName == null || customerName.trim().isBlank()){
+        if (customerName == null || customerName.isBlank()){
             throw new InvalidOrderException("Customer name cannot be empty");
         }
         if (deliveryAddress == null || deliveryAddress.trim().isBlank()){
@@ -84,7 +84,7 @@ public class Order {
     }
 
     public List<OrderItem> getItems() {
-        return Collections.unmodifiableList(items);
+        return items;
     }
 
     public BigDecimal getTotalAmount() {
