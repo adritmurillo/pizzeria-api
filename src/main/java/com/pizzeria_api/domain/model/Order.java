@@ -18,7 +18,11 @@ public class Order {
     private OrderStatus status;
     private final LocalDateTime createdAt;
 
-    public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items){
+    public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items) {
+        this(id, customerName, deliveryAddress, items, OrderStatus.PENDING, LocalDateTime.now());
+    }
+
+    public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items, OrderStatus status, LocalDateTime createdAt) {
         if (customerName == null || customerName.isBlank()){
             throw new InvalidOrderException("Customer name cannot be empty");
         }
@@ -34,8 +38,8 @@ public class Order {
         this.deliveryAddress = deliveryAddress.trim();
         this.items = List.copyOf(items);
         this.totalAmount = calculateTotal(this.items);
-        this.status = OrderStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
+        this.status = Objects.requireNonNullElse(status, OrderStatus.PENDING);
+        this.createdAt = Objects.requireNonNullElseGet(createdAt, LocalDateTime::now);
     }
 
     private BigDecimal calculateTotal(List<OrderItem> items){

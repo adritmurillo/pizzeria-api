@@ -62,7 +62,9 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
                 entity.getId(),
                 entity.getCustomerName(),
                 entity.getDeliveryAddress(),
-                safeItems
+                safeItems,
+                entity.getStatus(),
+                entity.getCreatedAt()
         );
     }
 
