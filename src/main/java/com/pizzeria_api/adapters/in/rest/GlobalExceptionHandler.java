@@ -1,5 +1,6 @@
 package com.pizzeria_api.adapters.in.rest;
 
+import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.InvalidPizzaException;
 import com.pizzeria_api.domain.exception.PizzaNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -48,4 +49,15 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
+
+    @ExceptionHandler(InvalidOrderException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidOrder(InvalidOrderException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.BAD_REQUEST.value());
+        error.put("error", "Bad Request");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
 }
