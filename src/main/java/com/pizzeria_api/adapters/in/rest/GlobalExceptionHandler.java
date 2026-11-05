@@ -2,6 +2,7 @@ package com.pizzeria_api.adapters.in.rest;
 
 import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.InvalidPizzaException;
+import com.pizzeria_api.domain.exception.OrderNotFoundException;
 import com.pizzeria_api.domain.exception.PizzaNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +17,8 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(PizzaNotFoundException.class)
-    public ResponseEntity<Map<String, Object>> handleNotFound(PizzaNotFoundException ex) {
+    @ExceptionHandler({PizzaNotFoundException.class, OrderNotFoundException.class})
+    public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());
         error.put("status", HttpStatus.NOT_FOUND.value());
