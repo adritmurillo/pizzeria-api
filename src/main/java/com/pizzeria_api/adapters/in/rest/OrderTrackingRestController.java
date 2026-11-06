@@ -1,7 +1,6 @@
 package com.pizzeria_api.adapters.in.rest;
 
 import com.pizzeria_api.domain.model.Order;
-import com.pizzeria_api.domain.model.OrderStatus;
 import com.pizzeria_api.domain.model.OrderStatusChangedEvent;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import org.springframework.context.event.EventListener;
@@ -25,37 +24,31 @@ public class OrderTrackingRestController {
 
     private final GetOrderUseCase getOrderUseCase;
     // Registro concurrente: una orden puede ser observada por 1 o más clientes/pantallas
-    private final Map<UUID, List<SseEmitter>> emittersByOrder = new
-            ConcurrentHashMap<>();
+    private final Map<UUID, List<SseEmitter>> emittersByOrder = new ConcurrentHashMap<>();
 
-    public OrderTrackingRestController(GetOrderUseCase getOrderUseCase)
-    {
+    public OrderTrackingRestController(GetOrderUseCase getOrderUseCase) {
         this.getOrderUseCase = getOrderUseCase;
     }
 
-    @GetMapping(value = "/{id}/tracking", produces =
-            MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/{id}/tracking", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter trackOrder(@PathVariable UUID id) {
         // Timeout de 30 minutos (1800000 ms)
         SseEmitter emitter = new SseEmitter(1800000L);
 
-        // Cláusulas de limpieza al desconectarse o fallar
+        // Cláusulas de limpieza cuando el cliente cierra la conexión o expira el timeout
         emitter.onCompletion(() -> removeEmitter(id, emitter));
         emitter.onTimeout(() -> removeEmitter(id, emitter));
         emitter.onError(e -> removeEmitter(id, emitter));
 
         // Registramos el cliente en la lista activa
-        emittersByOrder.computeIfAbsent(id, k -> new
-                CopyOnWriteArrayList<>()).add(emitter);
+        emittersByOrder.computeIfAbsent(id, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
-        // Push inmediato del estado inicial
+        // Push inmediato del estado actual al conectarse
         try {
             Order currentOrder = getOrderUseCase.getOrderById(id);
             emitter.send(SseEmitter.event()
                     .name("order-status")
-                    .data(new OrderStatusChangedEvent(id,
-                            currentOrder.getStatus(),
-                            currentOrder.getCreatedAt())));
+                    .data(new OrderStatusChangedEvent(id, currentOrder.getStatus())));
         } catch (IOException e) {
             removeEmitter(id, emitter);
         }
@@ -65,8 +58,7 @@ public class OrderTrackingRestController {
 
     @EventListener
     public void onOrderStatusChanged(OrderStatusChangedEvent event) {
-        List<SseEmitter> emitters =
-                emittersByOrder.get(event.orderId());
+        List<SseEmitter> emitters = emittersByOrder.get(event.orderId());
         if (emitters == null || emitters.isEmpty()) {
             return;
         }
@@ -76,12 +68,6 @@ public class OrderTrackingRestController {
                 emitter.send(SseEmitter.event()
                         .name("order-status")
                         .data(event));
-
-                // Si la orden ya se entregó o canceló, cerramos el stream ordenadamente
-                if (event.newStatus() == OrderStatus.DELIVERED ||
-                        event.newStatus() == OrderStatus.CANCELLED) {
-                    emitter.complete();
-                }
             } catch (IOException e) {
                 removeEmitter(event.orderId(), emitter);
             }
