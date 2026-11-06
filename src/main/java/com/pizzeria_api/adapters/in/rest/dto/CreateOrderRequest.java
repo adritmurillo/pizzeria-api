@@ -18,8 +18,7 @@ public record CreateOrderRequest(
         String deliveryAddress,
 
         @NotEmpty(message = "Order must have at least one item")
-        @Valid
-        List<OrderItemRequest> items
+        List<@Valid OrderItemRequest> items
 ) {
     public record OrderItemRequest(
             @NotNull(message = "Pizza ID is required")
