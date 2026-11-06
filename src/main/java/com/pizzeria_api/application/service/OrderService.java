@@ -53,6 +53,7 @@ public class OrderService implements CreateOrderUseCase, GetOrderUseCase, Update
             case PREPARING -> order.markAsPreparing();
             case READY -> order.markAsReady();
             case DELIVERED -> order.markAsDelivered();
+            case CANCELLED -> order.cancel();
             case PENDING -> throw new InvalidOrderException("Cannot revert order back to PENDING");
         }
 
