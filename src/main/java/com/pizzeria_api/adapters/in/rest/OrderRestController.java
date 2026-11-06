@@ -4,7 +4,6 @@ import com.pizzeria_api.adapters.in.rest.dto.CreateOrderRequest;
 import com.pizzeria_api.adapters.in.rest.dto.OrderResponse;
 import com.pizzeria_api.adapters.in.rest.dto.UpdateOrderStatusRequest;
 import com.pizzeria_api.domain.model.Order;
-import com.pizzeria_api.domain.model.OrderItem;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
@@ -36,22 +35,19 @@ public class OrderRestController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateOrderRequest request
             ){
-        List<OrderItem> domainItems = request.items().stream()
-                .map(item -> new OrderItem(
+        List<CreateOrderUseCase.OrderItemCommand> itemCommands = request.items().stream()
+                .map(item -> new CreateOrderUseCase.OrderItemCommand(
                         item.pizzaId(),
-                        item.pizzaName(),
-                        item.quantity(),
-                        item.unitPrice()
-                ))
-                .toList();
-        Order orderToCreate = new Order(
-                null,
+                        item.quantity()
+                )).toList();
+
+        CreateOrderUseCase.CreateOrderCommand command = new CreateOrderUseCase.CreateOrderCommand(
                 request.customerName(),
                 request.deliveryAddress(),
-                domainItems
+                itemCommands
         );
 
-        Order savedOrder = createOrderUseCase.createOrder(orderToCreate, idempotencyKey);
+        Order savedOrder = createOrderUseCase.createOrder(command, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.fromDomain(savedOrder));
     }
 

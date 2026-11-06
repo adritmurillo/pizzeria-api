@@ -2,16 +2,18 @@ package com.pizzeria_api.application.service;
 
 import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.OrderNotFoundException;
-import com.pizzeria_api.domain.model.Order;
-import com.pizzeria_api.domain.model.OrderStatus;
-import com.pizzeria_api.domain.model.OrderStatusChangedEvent;
+import com.pizzeria_api.domain.exception.PizzaNotFoundException;
+import com.pizzeria_api.domain.model.*;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
+import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,28 +22,56 @@ import java.util.concurrent.ConcurrentHashMap;
 public class OrderService implements CreateOrderUseCase,
         GetOrderUseCase, UpdateOrderStatusUseCase {
     private final OrderRepositoryPort orderRepositoryPort;
+    private final PizzaRepositoryPort pizzaRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
     private final Map<String, Order> idempotencyRecords = new
             ConcurrentHashMap<>();
 
     public OrderService(OrderRepositoryPort orderRepositoryPort,
+                        PizzaRepositoryPort pizzaRepositoryPort,
                         ApplicationEventPublisher eventPublisher) {
         this.orderRepositoryPort = orderRepositoryPort;
+        this.pizzaRepositoryPort = pizzaRepositoryPort;
         this.eventPublisher = eventPublisher;
     }
 
     @Override
-    public Order createOrder(Order order, String idempotencyKey) {
+    public Order createOrder(CreateOrderCommand command, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Order existingOrder =
-                    idempotencyRecords.get(idempotencyKey);
+            Order existingOrder = idempotencyRecords.get(idempotencyKey);
             if (existingOrder != null) {
                 return existingOrder;
             }
         }
 
-        Order savedOrder = orderRepositoryPort.save(order);
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+        List<OrderItem> domainItems = new ArrayList<>();
+        for (OrderItemCommand itemCommand : command.items()){
+            Pizza pizza = pizzaRepositoryPort.findById(itemCommand.pizzaId())
+                    .orElseThrow(() -> new PizzaNotFoundException("Pizza not found with id: "
+                    + itemCommand.pizzaId()));
+            if (!pizza.isAvailable()){
+                throw new InvalidOrderException(
+                        "Pizza '" + pizza.getName() + "' is currently unavailable"
+                );
+            }
+
+            domainItems.add(new OrderItem(
+                    pizza.getId(),
+                    pizza.getName(),
+                    itemCommand.quantity(),
+                    pizza.getPrice()
+            ));
+        }
+
+        Order orderToSave = new Order(
+                null,
+                command.customerName(),
+                command.deliveryAddress(),
+                domainItems
+        );
+
+        Order savedOrder = orderRepositoryPort.save(orderToSave);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()){
             idempotencyRecords.put(idempotencyKey, savedOrder);
         }
 
@@ -68,7 +98,6 @@ public class OrderService implements CreateOrderUseCase,
 
         Order savedOrder = orderRepositoryPort.save(order);
 
-        // Disparamos el evento en tiempo real para los clientes conectados
         eventPublisher.publishEvent(new
                 OrderStatusChangedEvent(savedOrder.getId(),
                 savedOrder.getStatus()));

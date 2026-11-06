@@ -23,14 +23,7 @@ public record CreateOrderRequest(
     public record OrderItemRequest(
             @NotNull(message = "Pizza ID is required")
             UUID pizzaId,
-
-            String pizzaName,
-
             @Positive(message = "Quantity must be at least 1")
-            int quantity,
-
-            @NotNull(message = "Unit price is required")
-            @Positive(message = "Unit price must be greater than zero")
-            BigDecimal unitPrice
+            int quantity
     ) {}
 }
