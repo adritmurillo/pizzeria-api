@@ -4,8 +4,11 @@ import com.pizzeria_api.adapters.in.rest.dto.CreateOrderRequest;
 import com.pizzeria_api.adapters.in.rest.dto.OrderResponse;
 import com.pizzeria_api.adapters.in.rest.dto.UpdateOrderStatusRequest;
 import com.pizzeria_api.domain.model.Order;
+import com.pizzeria_api.domain.model.OrderStatus;
+import com.pizzeria_api.domain.model.PagedResult;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
+import com.pizzeria_api.ports.in.GetOrdersUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -20,13 +23,16 @@ import java.util.UUID;
 public class OrderRestController {
     private final CreateOrderUseCase createOrderUseCase;
     private final GetOrderUseCase getOrderUseCase;
+    private final GetOrdersUseCase getOrdersUseCase;
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
 
     public OrderRestController(CreateOrderUseCase createOrderUseCase,
                                GetOrderUseCase getOrderUseCase,
+                               GetOrdersUseCase getOrdersUseCase,
                                UpdateOrderStatusUseCase updateOrderStatusUseCase){
         this.createOrderUseCase = createOrderUseCase;
         this.getOrderUseCase = getOrderUseCase;
+        this.getOrdersUseCase = getOrdersUseCase;
         this.updateOrderStatusUseCase = updateOrderStatusUseCase;
     }
 
@@ -49,6 +55,28 @@ public class OrderRestController {
 
         Order savedOrder = createOrderUseCase.createOrder(command, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(OrderResponse.fromDomain(savedOrder));
+    }
+
+    @GetMapping
+    public ResponseEntity<PagedResult<OrderResponse>> getOrders(
+            @RequestParam(required = false)OrderStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+            ){
+        PagedResult<Order> domainResult = getOrdersUseCase.getOrders(status, page, size);
+        List<OrderResponse> responseContent = domainResult.content().stream().map(OrderResponse :: fromDomain).toList();
+
+        PagedResult<OrderResponse> response = new PagedResult<>(
+                responseContent,
+                domainResult.pageNumber(),
+                domainResult.pageSize(),
+                domainResult.totalElements(),
+                domainResult.totalPages(),
+                domainResult.isFirst(),
+                domainResult.isLast()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")

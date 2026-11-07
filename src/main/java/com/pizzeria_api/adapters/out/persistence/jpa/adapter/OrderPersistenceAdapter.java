@@ -5,8 +5,13 @@ import com.pizzeria_api.adapters.out.persistence.jpa.entity.OrderItemJpaEntity;
 import com.pizzeria_api.adapters.out.persistence.jpa.repository.SpringDataOrderRepository;
 import com.pizzeria_api.domain.model.Order;
 import com.pizzeria_api.domain.model.OrderItem;
+import com.pizzeria_api.domain.model.OrderStatus;
+import com.pizzeria_api.domain.model.PagedResult;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -59,6 +64,24 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
         return springDataOrderRepository.findAll().stream()
                 .map(this::toDomain)
                 .toList();
+    }
+
+    @Override
+    public PagedResult<Order> findOrders(OrderStatus status, int page, int size) {
+        Pageable pageable = PageRequest.of(page,size);
+        Page<OrderJpaEntity> pageResult = (status != null) ? springDataOrderRepository.findByStatusOrderByCreatedAtAsc(status, pageable) : springDataOrderRepository.findAllByOrderByCreatedAtAsc(pageable);
+        List<Order> domainOrders = pageResult.getContent().stream()
+                .map(this::toDomain).toList();
+
+        return new PagedResult<>(
+                domainOrders,
+                pageResult.getNumber(),
+                pageResult.getSize(),
+                pageResult.getTotalElements(),
+                pageResult.getTotalPages(),
+                pageResult.isFirst(),
+                pageResult.isLast()
+        );
     }
 
     private OrderJpaEntity toEntity(Order domain) {

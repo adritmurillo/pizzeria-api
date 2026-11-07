@@ -6,6 +6,7 @@ import com.pizzeria_api.domain.exception.PizzaNotFoundException;
 import com.pizzeria_api.domain.model.*;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
+import com.pizzeria_api.ports.in.GetOrdersUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
@@ -20,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class OrderService implements CreateOrderUseCase,
-        GetOrderUseCase, UpdateOrderStatusUseCase {
+        GetOrderUseCase, UpdateOrderStatusUseCase, GetOrdersUseCase{
     private final OrderRepositoryPort orderRepositoryPort;
     private final PizzaRepositoryPort pizzaRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
@@ -103,5 +104,13 @@ public class OrderService implements CreateOrderUseCase,
                 savedOrder.getStatus()));
 
         return savedOrder;
+    }
+
+    @Override
+    public PagedResult<Order> getOrders(OrderStatus status, int page, int size) {
+        int safePage = Math.max(page, 0);
+        int safeSize = (size <= 0) ? 10 : Math.min(size, 50);
+
+        return orderRepositoryPort.findOrders(status, safePage, safeSize);
     }
 }
