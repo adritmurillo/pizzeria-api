@@ -113,14 +113,16 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
     }
 
     private Order toDomain(OrderJpaEntity entity) {
-        List<OrderItem> domainItems = entity.getItems().stream()
-                .map(itemEntity -> new OrderItem(
-                        itemEntity.getPizzaId(),
-                        itemEntity.getPizzaName(),
-                        itemEntity.getQuantity(),
-                        itemEntity.getUnitPrice()
-                ))
-                .toList();
+        List<OrderItem> domainItems = (entity.getItems() == null || entity.getItems().isEmpty())
+                ? List.of(new OrderItem(UUID.randomUUID(), "Legacy Order Item", 1, entity.getTotalAmount()))
+                : entity.getItems().stream()
+                        .map(itemEntity -> new OrderItem(
+                                itemEntity.getPizzaId(),
+                                itemEntity.getPizzaName(),
+                                itemEntity.getQuantity(),
+                                itemEntity.getUnitPrice()
+                        ))
+                        .toList();
 
         return new Order(
                 entity.getId(),
