@@ -25,8 +25,23 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
 
     @Override
     public Pizza save(Pizza pizza) {
-        PizzaJpaEntity entity = toEntity(pizza);
-        PizzaJpaEntity savedEntity = springDataPizzaRepository.save(entity);
+        Optional<PizzaJpaEntity> existingOpt = springDataPizzaRepository.findById(pizza.getId());
+
+        PizzaJpaEntity entityToSave;
+        if (existingOpt.isPresent()) {
+            entityToSave = existingOpt.get();
+            entityToSave.setName(pizza.getName());
+            entityToSave.setDescription(pizza.getDescription());
+            entityToSave.setPrice(pizza.getPrice());
+            entityToSave.setSize(pizza.getSize());
+            entityToSave.setCategory(pizza.getCategory());
+            entityToSave.setAvailable(pizza.isAvailable());
+            entityToSave.setStock(pizza.getStock());
+        } else {
+            entityToSave = toEntity(pizza);
+        }
+
+        PizzaJpaEntity savedEntity = springDataPizzaRepository.save(entityToSave);
         return toDomain(savedEntity);
     }
 
