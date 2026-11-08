@@ -12,6 +12,7 @@ import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@Transactional
 public class OrderService implements CreateOrderUseCase,
         GetOrderUseCase, UpdateOrderStatusUseCase, GetOrdersUseCase{
     private final OrderRepositoryPort orderRepositoryPort;
@@ -55,6 +57,9 @@ public class OrderService implements CreateOrderUseCase,
                         "Pizza '" + pizza.getName() + "' is currently unavailable"
                 );
             }
+
+            pizza.deductStock(itemCommand.quantity());
+            pizzaRepositoryPort.save(pizza);
 
             domainItems.add(new OrderItem(
                     pizza.getId(),
@@ -93,7 +98,16 @@ public class OrderService implements CreateOrderUseCase,
             case PREPARING -> order.markAsPreparing();
             case READY -> order.markAsReady();
             case DELIVERED -> order.markAsDelivered();
-            case CANCELLED -> order.cancel();
+            case CANCELLED -> {
+                order.cancel();
+                for (OrderItem item : order.getItems()){
+                    pizzaRepositoryPort.findById(item.getPizzaId()).ifPresent(
+                            p -> {
+                                p.restoreStock(item.getQuantity());
+                                pizzaRepositoryPort.save(p);
+                            });
+                }
+            }
             case PENDING -> throw new InvalidOrderException("Cannot revert order back to PENDING");
         }
 
@@ -107,6 +121,7 @@ public class OrderService implements CreateOrderUseCase,
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PagedResult<Order> getOrders(OrderStatus status, int page, int size) {
         int safePage = Math.max(page, 0);
         int safeSize = (size <= 0) ? 10 : Math.min(size, 50);

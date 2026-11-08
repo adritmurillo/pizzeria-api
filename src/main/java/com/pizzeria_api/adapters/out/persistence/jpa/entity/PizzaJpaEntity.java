@@ -35,13 +35,20 @@ public class PizzaJpaEntity {
     @Column(name = "available", nullable = false)
     private boolean available;
 
-    // Constructor vacío requerido por JPA/Hibernate
+    @Column(name = "stock", nullable = false)
+    private int stock;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
+
     public PizzaJpaEntity() {
     }
 
     public PizzaJpaEntity(UUID id, String name, String description,
                           BigDecimal price, PizzaSize size, PizzaCategory category, boolean
-                                  available) {
+                                  available, int stock) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -49,6 +56,7 @@ public class PizzaJpaEntity {
         this.size = size;
         this.category = category;
         this.available = available;
+        this.stock = stock;
     }
 
     // Getters y Setters
@@ -75,4 +83,10 @@ public class PizzaJpaEntity {
     public boolean isAvailable() { return available; }
     public void setAvailable(boolean available) { this.available =
             available; }
+
+    public int getStock(){return stock;}
+    public void setStock(int stock){this.stock = stock;}
+
+    public Long getVersion(){return version;}
+    public void setVersion(Long version) {this.version = version;}
 }

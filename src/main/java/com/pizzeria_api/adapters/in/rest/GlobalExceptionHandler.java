@@ -104,4 +104,26 @@ public class GlobalExceptionHandler {
         }
         return null;
     }
+
+    @ExceptionHandler(com.pizzeria_api.domain.exception.InsufficientStockException.class)
+    public ResponseEntity<Map<String, Object>>
+    handleInsufficientStock(com.pizzeria_api.domain.exception.InsufficientStockException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.CONFLICT.value());
+        error.put("error", "Stock Conflict");
+        error.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>>
+    handleOptimisticLock(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("timestamp", LocalDateTime.now());
+        error.put("status", HttpStatus.CONFLICT.value());
+        error.put("error", "Concurrent Update Conflict");
+        error.put("message", "Another customer updated this item concurrently. Please try your order again.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
 }

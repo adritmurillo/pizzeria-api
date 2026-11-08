@@ -48,7 +48,8 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
                 domain.getPrice(),
                 domain.getSize(),
                 domain.getCategory(),
-                domain.isAvailable()
+                domain.isAvailable(),
+                domain.getStock()
         );
     }
 
@@ -59,7 +60,9 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
                 entity.getDescription(),
                 entity.getPrice(),
                 entity.getSize(),
-                entity.getCategory()
+                entity.getCategory(),
+                entity.isAvailable(),
+                entity.getStock()
         );
     }
 }
