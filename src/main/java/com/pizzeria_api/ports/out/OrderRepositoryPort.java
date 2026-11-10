@@ -13,4 +13,5 @@ public interface OrderRepositoryPort {
     Optional<Order> findById(UUID id);
     List<Order> findAll();
     PagedResult<Order> findOrders(OrderStatus status, int page, int size);
+    int countActivePizzasInQueue();
 }

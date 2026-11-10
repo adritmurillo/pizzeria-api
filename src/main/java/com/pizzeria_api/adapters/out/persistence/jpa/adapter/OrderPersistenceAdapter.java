@@ -24,39 +24,34 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
 
     private final SpringDataOrderRepository springDataOrderRepository;
 
-    public OrderPersistenceAdapter(SpringDataOrderRepository
-                                           springDataOrderRepository) {
+    public OrderPersistenceAdapter(SpringDataOrderRepository springDataOrderRepository) {
         this.springDataOrderRepository = springDataOrderRepository;
     }
 
     @Override
     public Order save(Order order) {
-        Optional<OrderJpaEntity> existingOpt =
-                springDataOrderRepository.findById(order.getId());
+        Optional<OrderJpaEntity> existingOpt = springDataOrderRepository.findById(order.getId());
 
         OrderJpaEntity entityToSave;
         if (existingOpt.isPresent()) {
-            // Actualización de orden existente (ej. cambio de estado a PREPARING/READY)
             entityToSave = existingOpt.get();
             entityToSave.setStatus(order.getStatus());
             entityToSave.setTotalAmount(order.getTotalAmount());
             entityToSave.setCustomerName(order.getCustomerName());
-            entityToSave.setDeliveryAddress(order.getDeliveryAddress())
-            ;
+            entityToSave.setDeliveryAddress(order.getDeliveryAddress());
+            entityToSave.setEstimatedWaitMinutes(order.getEstimatedWaitMinutes());
+            entityToSave.setEstimatedReadyAt(order.getEstimatedReadyAt());
         } else {
-            // Creación de una nueva comanda con todos sus ítems
             entityToSave = toEntity(order);
         }
 
-        OrderJpaEntity savedEntity =
-                springDataOrderRepository.save(entityToSave);
+        OrderJpaEntity savedEntity = springDataOrderRepository.save(entityToSave);
         return toDomain(savedEntity);
     }
 
     @Override
     public Optional<Order> findById(UUID id) {
-        return
-                springDataOrderRepository.findById(id).map(this::toDomain);
+        return springDataOrderRepository.findById(id).map(this::toDomain);
     }
 
     @Override
@@ -68,8 +63,11 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
 
     @Override
     public PagedResult<Order> findOrders(OrderStatus status, int page, int size) {
-        Pageable pageable = PageRequest.of(page,size);
-        Page<OrderJpaEntity> pageResult = (status != null) ? springDataOrderRepository.findByStatusOrderByCreatedAtAsc(status, pageable) : springDataOrderRepository.findAllByOrderByCreatedAtAsc(pageable);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<OrderJpaEntity> pageResult = (status != null)
+                ? springDataOrderRepository.findByStatusOrderByCreatedAtAsc(status, pageable)
+                : springDataOrderRepository.findAllByOrderByCreatedAtAsc(pageable);
+
         List<Order> domainOrders = pageResult.getContent().stream()
                 .map(this::toDomain).toList();
 
@@ -84,6 +82,11 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
         );
     }
 
+    @Override
+    public int countActivePizzasInQueue() {
+        return springDataOrderRepository.countActivePizzasInQueue();
+    }
+
     private OrderJpaEntity toEntity(Order domain) {
         OrderJpaEntity entity = new OrderJpaEntity(
                 domain.getId(),
@@ -91,7 +94,9 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
                 domain.getDeliveryAddress(),
                 domain.getTotalAmount(),
                 domain.getStatus(),
-                domain.getCreatedAt()
+                domain.getCreatedAt(),
+                domain.getEstimatedWaitMinutes(),
+                domain.getEstimatedReadyAt()
         );
 
         if (domain.getItems() != null) {
@@ -130,7 +135,9 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
                 entity.getDeliveryAddress(),
                 domainItems,
                 entity.getStatus(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                entity.getEstimatedWaitMinutes(),
+                entity.getEstimatedReadyAt()
         );
     }
 }

@@ -48,7 +48,12 @@ public class OrderTrackingRestController {
             Order currentOrder = getOrderUseCase.getOrderById(id);
             emitter.send(SseEmitter.event()
                     .name("order-status")
-                    .data(new OrderStatusChangedEvent(id, currentOrder.getStatus())));
+                    .data(new OrderStatusChangedEvent(
+                            id,
+                            currentOrder.getStatus(),
+                            currentOrder.getEstimatedWaitMinutes(),
+                            currentOrder.getEstimatedReadyAt()
+                    )));
         } catch (IOException e) {
             removeEmitter(id, emitter);
         }

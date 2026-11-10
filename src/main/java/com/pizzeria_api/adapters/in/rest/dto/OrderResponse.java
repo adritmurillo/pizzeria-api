@@ -16,6 +16,8 @@ public record OrderResponse(
         List<OrderItemResponse> items,
         BigDecimal totalAmount,
         OrderStatus status,
+        int estimatedWaitMinutes,
+        LocalDateTime estimatedReadyAt,
         LocalDateTime createdAt
 ) {
     public record OrderItemResponse(
@@ -48,6 +50,8 @@ public record OrderResponse(
                 itemResponses,
                 order.getTotalAmount(),
                 order.getStatus(),
+                order.getEstimatedWaitMinutes(),
+                order.getEstimatedReadyAt(),
                 order.getCreatedAt()
         );
     }

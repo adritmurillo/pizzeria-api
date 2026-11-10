@@ -56,4 +56,12 @@ public class InMemoryOrderRepository implements OrderRepositoryPort {
                 isLast
         );
     }
+
+    @Override
+    public int countActivePizzasInQueue() {
+        return ordersDatabase.values().stream()
+                .filter(o -> o.getStatus() == OrderStatus.PENDING || o.getStatus() == OrderStatus.PREPARING)
+                .mapToInt(Order::getTotalPizzaCount)
+                .sum();
+    }
 }

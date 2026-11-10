@@ -4,6 +4,7 @@ import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.OrderNotFoundException;
 import com.pizzeria_api.domain.exception.PizzaNotFoundException;
 import com.pizzeria_api.domain.model.*;
+import com.pizzeria_api.domain.service.KitchenQueueEstimator;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrdersUseCase;
@@ -23,12 +24,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @Transactional
 public class OrderService implements CreateOrderUseCase,
-        GetOrderUseCase, UpdateOrderStatusUseCase, GetOrdersUseCase{
+        GetOrderUseCase, UpdateOrderStatusUseCase, GetOrdersUseCase {
+
     private final OrderRepositoryPort orderRepositoryPort;
     private final PizzaRepositoryPort pizzaRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
-    private final Map<String, Order> idempotencyRecords = new
-            ConcurrentHashMap<>();
+    private final KitchenQueueEstimator kitchenQueueEstimator = new KitchenQueueEstimator();
+    private final Map<String, Order> idempotencyRecords = new ConcurrentHashMap<>();
 
     public OrderService(OrderRepositoryPort orderRepositoryPort,
                         PizzaRepositoryPort pizzaRepositoryPort,
@@ -48,14 +50,12 @@ public class OrderService implements CreateOrderUseCase,
         }
 
         List<OrderItem> domainItems = new ArrayList<>();
-        for (OrderItemCommand itemCommand : command.items()){
+        for (OrderItemCommand itemCommand : command.items()) {
             Pizza pizza = pizzaRepositoryPort.findById(itemCommand.pizzaId())
-                    .orElseThrow(() -> new PizzaNotFoundException("Pizza not found with id: "
-                    + itemCommand.pizzaId()));
-            if (!pizza.isAvailable()){
-                throw new InvalidOrderException(
-                        "Pizza '" + pizza.getName() + "' is currently unavailable"
-                );
+                    .orElseThrow(() -> new PizzaNotFoundException("Pizza not found with id: " + itemCommand.pizzaId()));
+
+            if (!pizza.isAvailable()) {
+                throw new InvalidOrderException("Pizza '" + pizza.getName() + "' is currently unavailable");
             }
 
             pizza.deductStock(itemCommand.quantity());
@@ -76,8 +76,15 @@ public class OrderService implements CreateOrderUseCase,
                 domainItems
         );
 
+        int pizzasAhead = orderRepositoryPort.countActivePizzasInQueue();
+        int estimatedMinutes = kitchenQueueEstimator.calculateEstimatedWaitMinutes(
+                pizzasAhead,
+                orderToSave.getTotalPizzaCount()
+        );
+        orderToSave.assignEstimatedWaitTime(estimatedMinutes);
+
         Order savedOrder = orderRepositoryPort.save(orderToSave);
-        if (idempotencyKey != null && !idempotencyKey.isBlank()){
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             idempotencyRecords.put(idempotencyKey, savedOrder);
         }
 
@@ -87,8 +94,7 @@ public class OrderService implements CreateOrderUseCase,
     @Override
     public Order getOrderById(UUID id) {
         return orderRepositoryPort.findById(id).orElseThrow(() -> new
-                OrderNotFoundException(
-                "Order not found with id: " + id));
+                OrderNotFoundException("Order not found with id: " + id));
     }
 
     @Override
@@ -100,12 +106,11 @@ public class OrderService implements CreateOrderUseCase,
             case DELIVERED -> order.markAsDelivered();
             case CANCELLED -> {
                 order.cancel();
-                for (OrderItem item : order.getItems()){
-                    pizzaRepositoryPort.findById(item.getPizzaId()).ifPresent(
-                            p -> {
-                                p.restoreStock(item.getQuantity());
-                                pizzaRepositoryPort.save(p);
-                            });
+                for (OrderItem item : order.getItems()) {
+                    pizzaRepositoryPort.findById(item.getPizzaId()).ifPresent(p -> {
+                        p.restoreStock(item.getQuantity());
+                        pizzaRepositoryPort.save(p);
+                    });
                 }
             }
             case PENDING -> throw new InvalidOrderException("Cannot revert order back to PENDING");
@@ -113,9 +118,12 @@ public class OrderService implements CreateOrderUseCase,
 
         Order savedOrder = orderRepositoryPort.save(order);
 
-        eventPublisher.publishEvent(new
-                OrderStatusChangedEvent(savedOrder.getId(),
-                savedOrder.getStatus()));
+        eventPublisher.publishEvent(new OrderStatusChangedEvent(
+                savedOrder.getId(),
+                savedOrder.getStatus(),
+                savedOrder.getEstimatedWaitMinutes(),
+                savedOrder.getEstimatedReadyAt()
+        ));
 
         return savedOrder;
     }

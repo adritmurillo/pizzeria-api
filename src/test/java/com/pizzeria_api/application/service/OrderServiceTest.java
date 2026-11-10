@@ -1,6 +1,8 @@
 package com.pizzeria_api.application.service;
 
 import com.pizzeria_api.domain.model.*;
+import com.pizzeria_api.ports.in.CreateOrderUseCase.CreateOrderCommand;
+import com.pizzeria_api.ports.in.CreateOrderUseCase.OrderItemCommand;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.junit.jupiter.api.DisplayName;
@@ -17,6 +19,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -58,5 +61,31 @@ public class OrderServiceTest {
         verify(pizzaRepositoryPort, times(1)).save(pizza);
         verify(orderRepositoryPort, times(1)).save(order);
         verify(eventPublisher, times(1)).publishEvent(any(OrderStatusChangedEvent.class));
+    }
+
+    @Test
+    @DisplayName("Should create order with dynamic ETA calculated from kitchen queue")
+    void shouldCreateOrderWithDynamicEta() {
+        UUID pizzaId = UUID.randomUUID();
+        Pizza pizza = new Pizza(pizzaId, "Brava", "Description", new BigDecimal("15.00"),
+                PizzaSize.LARGE, PizzaCategory.CLASSIC, true, 20);
+
+        when(pizzaRepositoryPort.findById(pizzaId)).thenReturn(Optional.of(pizza));
+        when(orderRepositoryPort.countActivePizzasInQueue()).thenReturn(0);
+        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateOrderCommand command = new CreateOrderCommand(
+                "Carlos ZeroTrust",
+                "Av. Central 123",
+                List.of(new OrderItemCommand(pizzaId, 2))
+        );
+
+        Order createdOrder = orderService.createOrder(command, null);
+
+        assertNotNull(createdOrder);
+        // 2 pizzas with 0 ahead: 2 * 2 prep + 1 * 10 bake + 3 dispatch = 17 min
+        assertEquals(17, createdOrder.getEstimatedWaitMinutes());
+        assertNotNull(createdOrder.getEstimatedReadyAt());
+        assertEquals(18, pizza.getStock());
     }
 }
