@@ -69,6 +69,9 @@ public class Order {
     }
 
     public void cancel() {
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new InvalidOrderException("Order is already cancelled");
+        }
         if (this.status == OrderStatus.DELIVERED){
             throw new InvalidOrderException("Cannot cancel an order that has already been delivered");
         }

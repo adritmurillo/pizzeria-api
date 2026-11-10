@@ -14,7 +14,8 @@ public record PizzaResponse(
         BigDecimal price,
         PizzaSize size,
         PizzaCategory category,
-        boolean available
+        boolean available,
+        int stock
 ) {
     public static PizzaResponse fromDomain(Pizza pizza){
         return new PizzaResponse(
@@ -24,7 +25,8 @@ public record PizzaResponse(
                 pizza.getPrice(),
                 pizza.getSize(),
                 pizza.getCategory(),
-                pizza.isAvailable()
+                pizza.isAvailable(),
+                pizza.getStock()
         );
     }
 }
