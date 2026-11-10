@@ -4,6 +4,7 @@ import com.pizzeria_api.domain.exception.InsufficientStockException;
 import com.pizzeria_api.domain.exception.InvalidPizzaException;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -16,19 +17,26 @@ public class Pizza {
     private PizzaCategory category;
     private boolean available;
     private int stock;
+    private List<RecipeItem> recipe;
 
     public Pizza(UUID id, String name, String description, BigDecimal price,
                  PizzaSize size, PizzaCategory category) {
-        this(id, name, description, price, size, category, true, 50);
+        this(id, name, description, price, size, category, true, 50, List.of());
     }
 
     public Pizza(UUID id, String name, String description, BigDecimal price,
                  PizzaSize size, PizzaCategory category, boolean available) {
-        this(id, name, description, price, size, category, available, 50);
+        this(id, name, description, price, size, category, available, 50, List.of());
     }
 
     public Pizza(UUID id, String name, String description, BigDecimal price,
                  PizzaSize size, PizzaCategory category, boolean available, int stock) {
+        this(id, name, description, price, size, category, available, stock, List.of());
+    }
+
+    public Pizza(UUID id, String name, String description, BigDecimal price,
+                 PizzaSize size, PizzaCategory category, boolean available, int stock,
+                 List<RecipeItem> recipe) {
         validateName(name);
         validatePrice(price);
         validateSize(size);
@@ -43,6 +51,7 @@ public class Pizza {
         this.category = category;
         this.stock = stock;
         this.available = available && (stock > 0);
+        this.recipe = recipe != null ? List.copyOf(recipe) : List.of();
     }
 
     private void validateName(String name) {
@@ -140,5 +149,17 @@ public class Pizza {
 
     public int getStock() {
         return stock;
+    }
+
+    public List<RecipeItem> getRecipe() {
+        return recipe;
+    }
+
+    public boolean hasRecipe() {
+        return recipe != null && !recipe.isEmpty();
+    }
+
+    public void assignRecipe(List<RecipeItem> recipe) {
+        this.recipe = recipe != null ? List.copyOf(recipe) : List.of();
     }
 }
