@@ -1,5 +1,6 @@
 package com.pizzeria_api.application.service;
 
+import com.pizzeria_api.domain.exception.IngredientNotFoundException;
 import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.OrderNotFoundException;
 import com.pizzeria_api.domain.exception.PizzaNotFoundException;
@@ -9,6 +10,7 @@ import com.pizzeria_api.ports.in.CreateOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrdersUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
+import com.pizzeria_api.ports.out.IngredientRepositoryPort;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.springframework.context.ApplicationEventPublisher;
@@ -28,15 +30,18 @@ public class OrderService implements CreateOrderUseCase,
 
     private final OrderRepositoryPort orderRepositoryPort;
     private final PizzaRepositoryPort pizzaRepositoryPort;
+    private final IngredientRepositoryPort ingredientRepositoryPort;
     private final ApplicationEventPublisher eventPublisher;
     private final KitchenQueueEstimator kitchenQueueEstimator = new KitchenQueueEstimator();
     private final Map<String, Order> idempotencyRecords = new ConcurrentHashMap<>();
 
     public OrderService(OrderRepositoryPort orderRepositoryPort,
                         PizzaRepositoryPort pizzaRepositoryPort,
+                        IngredientRepositoryPort ingredientRepositoryPort,
                         ApplicationEventPublisher eventPublisher) {
         this.orderRepositoryPort = orderRepositoryPort;
         this.pizzaRepositoryPort = pizzaRepositoryPort;
+        this.ingredientRepositoryPort = ingredientRepositoryPort;
         this.eventPublisher = eventPublisher;
     }
 
@@ -58,8 +63,20 @@ public class OrderService implements CreateOrderUseCase,
                 throw new InvalidOrderException("Pizza '" + pizza.getName() + "' is currently unavailable");
             }
 
-            pizza.deductStock(itemCommand.quantity());
-            pizzaRepositoryPort.save(pizza);
+            if (pizza.hasRecipe()) {
+                for (RecipeItem recipeItem : pizza.getRecipe()) {
+                    int totalRequired = recipeItem.quantityRequired() * itemCommand.quantity();
+                    Ingredient ingredient = ingredientRepositoryPort.findById(recipeItem.ingredientId())
+                            .orElseThrow(() -> new IngredientNotFoundException(
+                                    "Ingredient '" + recipeItem.ingredientName() + "' not found with id: " + recipeItem.ingredientId()
+                            ));
+                    ingredient.deductStock(totalRequired);
+                    ingredientRepositoryPort.save(ingredient);
+                }
+            } else {
+                pizza.deductStock(itemCommand.quantity());
+                pizzaRepositoryPort.save(pizza);
+            }
 
             domainItems.add(new OrderItem(
                     pizza.getId(),
@@ -108,8 +125,18 @@ public class OrderService implements CreateOrderUseCase,
                 order.cancel();
                 for (OrderItem item : order.getItems()) {
                     pizzaRepositoryPort.findById(item.getPizzaId()).ifPresent(p -> {
-                        p.restoreStock(item.getQuantity());
-                        pizzaRepositoryPort.save(p);
+                        if (p.hasRecipe()) {
+                            for (RecipeItem recipeItem : p.getRecipe()) {
+                                int totalToRestore = recipeItem.quantityRequired() * item.getQuantity();
+                                ingredientRepositoryPort.findById(recipeItem.ingredientId()).ifPresent(ing -> {
+                                    ing.restoreStock(totalToRestore);
+                                    ingredientRepositoryPort.save(ing);
+                                });
+                            }
+                        } else {
+                            p.restoreStock(item.getQuantity());
+                            pizzaRepositoryPort.save(p);
+                        }
                     });
                 }
             }

@@ -3,6 +3,7 @@ package com.pizzeria_api.application.service;
 import com.pizzeria_api.domain.model.*;
 import com.pizzeria_api.ports.in.CreateOrderUseCase.CreateOrderCommand;
 import com.pizzeria_api.ports.in.CreateOrderUseCase.OrderItemCommand;
+import com.pizzeria_api.ports.out.IngredientRepositoryPort;
 import com.pizzeria_api.ports.out.OrderRepositoryPort;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.junit.jupiter.api.DisplayName;
@@ -33,13 +34,16 @@ public class OrderServiceTest {
     private PizzaRepositoryPort pizzaRepositoryPort;
 
     @Mock
+    private IngredientRepositoryPort ingredientRepositoryPort;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private OrderService orderService;
 
     @Test
-    @DisplayName("Should restore pizza stock when order is cancelled")
+    @DisplayName("Should restore pizza stock when order is cancelled (legacy fallback)")
     void shouldRestoreStockWhenOrderIsCancelled() {
         UUID orderId = UUID.randomUUID();
         UUID pizzaId = UUID.randomUUID();
@@ -83,9 +87,38 @@ public class OrderServiceTest {
         Order createdOrder = orderService.createOrder(command, null);
 
         assertNotNull(createdOrder);
-        // 2 pizzas with 0 ahead: 2 * 2 prep + 1 * 10 bake + 3 dispatch = 17 min
         assertEquals(17, createdOrder.getEstimatedWaitMinutes());
         assertNotNull(createdOrder.getEstimatedReadyAt());
         assertEquals(18, pizza.getStock());
+    }
+
+    @Test
+    @DisplayName("Should deduct ingredients stock when pizza has BOM recipe")
+    void shouldDeductIngredientStockWhenPizzaHasRecipe() {
+        UUID pizzaId = UUID.randomUUID();
+        UUID cheeseId = UUID.randomUUID();
+
+        Ingredient cheese = new Ingredient(cheeseId, "Queso Mozzarella", IngredientUnit.GRAMS, 1000, new BigDecimal("0.02"));
+        RecipeItem recipeItem = new RecipeItem(cheeseId, "Queso Mozzarella", 200, IngredientUnit.GRAMS);
+
+        Pizza pizzaWithRecipe = new Pizza(pizzaId, "Margarita Gourmet", "Con mozzarella", new BigDecimal("18.00"),
+                PizzaSize.MEDIUM, PizzaCategory.CLASSIC, true, 50, List.of(recipeItem));
+
+        when(pizzaRepositoryPort.findById(pizzaId)).thenReturn(Optional.of(pizzaWithRecipe));
+        when(ingredientRepositoryPort.findById(cheeseId)).thenReturn(Optional.of(cheese));
+        when(orderRepositoryPort.countActivePizzasInQueue()).thenReturn(0);
+        when(orderRepositoryPort.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateOrderCommand command = new CreateOrderCommand(
+                "Lucas Chef",
+                "Calle Gourmet 44",
+                List.of(new OrderItemCommand(pizzaId, 3)) // 3 pizzas * 200g = 600g
+        );
+
+        Order createdOrder = orderService.createOrder(command, null);
+
+        assertNotNull(createdOrder);
+        assertEquals(400, cheese.getStock()); // 1000 - 600 = 400
+        verify(ingredientRepositoryPort, times(1)).save(cheese);
     }
 }
