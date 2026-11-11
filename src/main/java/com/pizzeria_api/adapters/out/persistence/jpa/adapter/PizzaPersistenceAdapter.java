@@ -1,9 +1,9 @@
 package com.pizzeria_api.adapters.out.persistence.jpa.adapter;
 
-
 import com.pizzeria_api.adapters.out.persistence.jpa.entity.PizzaJpaEntity;
 import com.pizzeria_api.adapters.out.persistence.jpa.repository.SpringDataPizzaRepository;
 import com.pizzeria_api.domain.model.Pizza;
+import com.pizzeria_api.domain.model.RecipeItem;
 import com.pizzeria_api.ports.out.PizzaRepositoryPort;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
@@ -18,10 +18,9 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
 
     private final SpringDataPizzaRepository springDataPizzaRepository;
 
-    public PizzaPersistenceAdapter(SpringDataPizzaRepository springDataPizzaRepository){
+    public PizzaPersistenceAdapter(SpringDataPizzaRepository springDataPizzaRepository) {
         this.springDataPizzaRepository = springDataPizzaRepository;
     }
-
 
     @Override
     public Pizza save(Pizza pizza) {
@@ -52,7 +51,7 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
 
     @Override
     public List<Pizza> findAll() {
-        return springDataPizzaRepository.findAll().stream().map(this :: toDomain).toList();
+        return springDataPizzaRepository.findAll().stream().map(this::toDomain).toList();
     }
 
     private PizzaJpaEntity toEntity(Pizza domain) {
@@ -69,6 +68,16 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
     }
 
     private Pizza toDomain(PizzaJpaEntity entity) {
+        List<RecipeItem> domainRecipe = (entity.getRecipe() == null) ? List.of() :
+                entity.getRecipe().stream()
+                        .map(r -> new RecipeItem(
+                                r.getIngredient().getId(),
+                                r.getIngredient().getName(),
+                                r.getQuantityRequired(),
+                                r.getUnit()
+                        ))
+                        .toList();
+
         return new Pizza(
                 entity.getId(),
                 entity.getName(),
@@ -77,7 +86,8 @@ public class PizzaPersistenceAdapter implements PizzaRepositoryPort {
                 entity.getSize(),
                 entity.getCategory(),
                 entity.isAvailable(),
-                entity.getStock()
+                entity.getStock(),
+                domainRecipe
         );
     }
 }

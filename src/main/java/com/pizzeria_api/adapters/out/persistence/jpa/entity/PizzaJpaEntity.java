@@ -5,6 +5,8 @@ import com.pizzeria_api.domain.model.PizzaSize;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -42,13 +44,15 @@ public class PizzaJpaEntity {
     @Column(name = "version", nullable = false)
     private Long version;
 
+    @OneToMany(mappedBy = "pizza", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<RecipeItemJpaEntity> recipe = new ArrayList<>();
 
     public PizzaJpaEntity() {
     }
 
     public PizzaJpaEntity(UUID id, String name, String description,
-                          BigDecimal price, PizzaSize size, PizzaCategory category, boolean
-                                  available, int stock) {
+                          BigDecimal price, PizzaSize size, PizzaCategory category,
+                          boolean available, int stock) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -67,8 +71,7 @@ public class PizzaJpaEntity {
     public void setName(String name) { this.name = name; }
 
     public String getDescription() { return description; }
-    public void setDescription(String description) { this.description =
-            description; }
+    public void setDescription(String description) { this.description = description; }
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
@@ -77,16 +80,17 @@ public class PizzaJpaEntity {
     public void setSize(PizzaSize size) { this.size = size; }
 
     public PizzaCategory getCategory() { return category; }
-    public void setCategory(PizzaCategory category) { this.category =
-            category; }
+    public void setCategory(PizzaCategory category) { this.category = category; }
 
     public boolean isAvailable() { return available; }
-    public void setAvailable(boolean available) { this.available =
-            available; }
+    public void setAvailable(boolean available) { this.available = available; }
 
-    public int getStock(){return stock;}
-    public void setStock(int stock){this.stock = stock;}
+    public int getStock() { return stock; }
+    public void setStock(int stock) { this.stock = stock; }
 
-    public Long getVersion(){return version;}
-    public void setVersion(Long version) {this.version = version;}
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
+
+    public List<RecipeItemJpaEntity> getRecipe() { return recipe; }
+    public void setRecipe(List<RecipeItemJpaEntity> recipe) { this.recipe = recipe; }
 }
