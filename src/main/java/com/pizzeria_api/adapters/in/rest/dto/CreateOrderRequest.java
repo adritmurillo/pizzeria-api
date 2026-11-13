@@ -18,8 +18,13 @@ public record CreateOrderRequest(
         String deliveryAddress,
 
         @NotEmpty(message = "Order must have at least one item")
-        List<@Valid OrderItemRequest> items
+        List<@Valid OrderItemRequest> items,
+
+        String couponCode
 ) {
+    public CreateOrderRequest(String customerName, String deliveryAddress, List<OrderItemRequest> items) {
+        this(customerName, deliveryAddress, items, null);
+    }
     public record OrderItemRequest(
             @NotNull(message = "Pizza ID is required")
             UUID pizzaId,

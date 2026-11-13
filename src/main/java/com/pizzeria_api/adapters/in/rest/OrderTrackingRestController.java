@@ -52,7 +52,9 @@ public class OrderTrackingRestController {
                             id,
                             currentOrder.getStatus(),
                             currentOrder.getEstimatedWaitMinutes(),
-                            currentOrder.getEstimatedReadyAt()
+                            currentOrder.getEstimatedReadyAt(),
+                            currentOrder.getAssignedDriverId(),
+                            currentOrder.getAssignedDriverName()
                     )));
         } catch (IOException e) {
             removeEmitter(id, emitter);

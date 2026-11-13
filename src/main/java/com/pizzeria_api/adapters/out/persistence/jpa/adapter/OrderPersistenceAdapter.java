@@ -36,11 +36,16 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
         if (existingOpt.isPresent()) {
             entityToSave = existingOpt.get();
             entityToSave.setStatus(order.getStatus());
+            entityToSave.setSubtotalAmount(order.getSubtotalAmount());
+            entityToSave.setAppliedCouponCode(order.getAppliedCouponCode());
+            entityToSave.setDiscountAmount(order.getDiscountAmount());
             entityToSave.setTotalAmount(order.getTotalAmount());
             entityToSave.setCustomerName(order.getCustomerName());
             entityToSave.setDeliveryAddress(order.getDeliveryAddress());
             entityToSave.setEstimatedWaitMinutes(order.getEstimatedWaitMinutes());
             entityToSave.setEstimatedReadyAt(order.getEstimatedReadyAt());
+            entityToSave.setAssignedDriverId(order.getAssignedDriverId());
+            entityToSave.setAssignedDriverName(order.getAssignedDriverName());
         } else {
             entityToSave = toEntity(order);
         }
@@ -92,11 +97,16 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
                 domain.getId(),
                 domain.getCustomerName(),
                 domain.getDeliveryAddress(),
+                domain.getSubtotalAmount(),
+                domain.getAppliedCouponCode(),
+                domain.getDiscountAmount(),
                 domain.getTotalAmount(),
                 domain.getStatus(),
                 domain.getCreatedAt(),
                 domain.getEstimatedWaitMinutes(),
-                domain.getEstimatedReadyAt()
+                domain.getEstimatedReadyAt(),
+                domain.getAssignedDriverId(),
+                domain.getAssignedDriverName()
         );
 
         if (domain.getItems() != null) {
@@ -137,7 +147,11 @@ public class OrderPersistenceAdapter implements OrderRepositoryPort {
                 entity.getStatus(),
                 entity.getCreatedAt(),
                 entity.getEstimatedWaitMinutes(),
-                entity.getEstimatedReadyAt()
+                entity.getEstimatedReadyAt(),
+                entity.getAppliedCouponCode(),
+                entity.getDiscountAmount(),
+                entity.getAssignedDriverId(),
+                entity.getAssignedDriverName()
         );
     }
 }

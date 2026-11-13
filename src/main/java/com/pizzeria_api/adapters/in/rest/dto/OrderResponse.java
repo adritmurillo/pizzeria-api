@@ -14,10 +14,15 @@ public record OrderResponse(
         String customerName,
         String deliveryAddress,
         List<OrderItemResponse> items,
+        BigDecimal subtotalAmount,
+        String appliedCouponCode,
+        BigDecimal discountAmount,
         BigDecimal totalAmount,
         OrderStatus status,
         int estimatedWaitMinutes,
         LocalDateTime estimatedReadyAt,
+        UUID assignedDriverId,
+        String assignedDriverName,
         LocalDateTime createdAt
 ) {
     public record OrderItemResponse(
@@ -48,10 +53,15 @@ public record OrderResponse(
                 order.getCustomerName(),
                 order.getDeliveryAddress(),
                 itemResponses,
+                order.getSubtotalAmount(),
+                order.getAppliedCouponCode(),
+                order.getDiscountAmount(),
                 order.getTotalAmount(),
                 order.getStatus(),
                 order.getEstimatedWaitMinutes(),
                 order.getEstimatedReadyAt(),
+                order.getAssignedDriverId(),
+                order.getAssignedDriverName(),
                 order.getCreatedAt()
         );
     }

@@ -7,6 +7,7 @@ import com.pizzeria_api.domain.model.Order;
 import com.pizzeria_api.domain.model.OrderStatus;
 import com.pizzeria_api.domain.model.PagedResult;
 import com.pizzeria_api.ports.in.CreateOrderUseCase;
+import com.pizzeria_api.ports.in.DispatchOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrderUseCase;
 import com.pizzeria_api.ports.in.GetOrdersUseCase;
 import com.pizzeria_api.ports.in.UpdateOrderStatusUseCase;
@@ -25,15 +26,18 @@ public class OrderRestController {
     private final GetOrderUseCase getOrderUseCase;
     private final GetOrdersUseCase getOrdersUseCase;
     private final UpdateOrderStatusUseCase updateOrderStatusUseCase;
+    private final DispatchOrderUseCase dispatchOrderUseCase;
 
     public OrderRestController(CreateOrderUseCase createOrderUseCase,
                                GetOrderUseCase getOrderUseCase,
                                GetOrdersUseCase getOrdersUseCase,
-                               UpdateOrderStatusUseCase updateOrderStatusUseCase){
+                               UpdateOrderStatusUseCase updateOrderStatusUseCase,
+                               DispatchOrderUseCase dispatchOrderUseCase){
         this.createOrderUseCase = createOrderUseCase;
         this.getOrderUseCase = getOrderUseCase;
         this.getOrdersUseCase = getOrdersUseCase;
         this.updateOrderStatusUseCase = updateOrderStatusUseCase;
+        this.dispatchOrderUseCase = dispatchOrderUseCase;
     }
 
     @PostMapping
@@ -50,7 +54,8 @@ public class OrderRestController {
         CreateOrderUseCase.CreateOrderCommand command = new CreateOrderUseCase.CreateOrderCommand(
                 request.customerName(),
                 request.deliveryAddress(),
-                itemCommands
+                itemCommands,
+                request.couponCode()
         );
 
         Order savedOrder = createOrderUseCase.createOrder(command, idempotencyKey);
@@ -91,5 +96,11 @@ public class OrderRestController {
         Order updatedOrder = updateOrderStatusUseCase.updateStatus(id, request.status());
         return ResponseEntity.ok(OrderResponse.fromDomain(updatedOrder));
 
+    }
+
+    @PostMapping("/{id}/dispatch")
+    public ResponseEntity<OrderResponse> dispatchOrder(@PathVariable UUID id) {
+        Order dispatchedOrder = dispatchOrderUseCase.dispatchOrder(id);
+        return ResponseEntity.ok(OrderResponse.fromDomain(dispatchedOrder));
     }
 }

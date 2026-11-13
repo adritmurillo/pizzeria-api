@@ -11,8 +11,13 @@ public interface CreateOrderUseCase {
     record CreateOrderCommand(
             String customerName,
             String deliveryAddress,
-            List<OrderItemCommand> items
-    ){}
+            List<OrderItemCommand> items,
+            String couponCode
+    ) {
+        public CreateOrderCommand(String customerName, String deliveryAddress, List<OrderItemCommand> items) {
+            this(customerName, deliveryAddress, items, null);
+        }
+    }
 
     record OrderItemCommand(
             UUID pizzaId,

@@ -1,7 +1,11 @@
 package com.pizzeria_api.adapters.in.rest;
 
+import com.pizzeria_api.domain.exception.CouponNotFoundException;
+import com.pizzeria_api.domain.exception.InvalidCouponException;
+import com.pizzeria_api.domain.exception.InvalidDriverException;
 import com.pizzeria_api.domain.exception.InvalidOrderException;
 import com.pizzeria_api.domain.exception.InvalidPizzaException;
+import com.pizzeria_api.domain.exception.NoAvailableDriverException;
 import com.pizzeria_api.domain.exception.OrderNotFoundException;
 import com.pizzeria_api.domain.exception.PizzaNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -21,7 +25,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({PizzaNotFoundException.class, OrderNotFoundException.class})
+    @ExceptionHandler({PizzaNotFoundException.class, OrderNotFoundException.class, CouponNotFoundException.class})
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex) {
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());
@@ -41,8 +45,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    @ExceptionHandler(InvalidOrderException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidOrder(InvalidOrderException ex) {
+    @ExceptionHandler({InvalidOrderException.class, InvalidCouponException.class, InvalidDriverException.class})
+    public ResponseEntity<Map<String, Object>> handleInvalidOrder(RuntimeException ex) {
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());
         error.put("status", HttpStatus.BAD_REQUEST.value());
@@ -105,13 +109,13 @@ public class GlobalExceptionHandler {
         return null;
     }
 
-    @ExceptionHandler(com.pizzeria_api.domain.exception.InsufficientStockException.class)
+    @ExceptionHandler({com.pizzeria_api.domain.exception.InsufficientStockException.class, NoAvailableDriverException.class})
     public ResponseEntity<Map<String, Object>>
-    handleInsufficientStock(com.pizzeria_api.domain.exception.InsufficientStockException ex) {
+    handleInsufficientStock(RuntimeException ex) {
         Map<String, Object> error = new HashMap<>();
         error.put("timestamp", LocalDateTime.now());
         error.put("status", HttpStatus.CONFLICT.value());
-        error.put("error", "Stock Conflict");
+        error.put("error", ex instanceof NoAvailableDriverException ? "Delivery Fleet Conflict" : "Stock Conflict");
         error.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }

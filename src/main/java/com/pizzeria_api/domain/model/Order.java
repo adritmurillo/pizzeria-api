@@ -3,8 +3,10 @@ package com.pizzeria_api.domain.model;
 import com.pizzeria_api.domain.exception.InvalidOrderException;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -13,24 +15,44 @@ public class Order {
     private final String customerName;
     private final String deliveryAddress;
     private final List<OrderItem> items;
-    private final BigDecimal totalAmount;
+    private final BigDecimal subtotalAmount;
+    private String appliedCouponCode;
+    private BigDecimal discountAmount;
+    private BigDecimal totalAmount;
     private OrderStatus status;
     private final LocalDateTime createdAt;
     private int estimatedWaitMinutes;
     private LocalDateTime estimatedReadyAt;
+    private UUID assignedDriverId;
+    private String assignedDriverName;
 
     public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items) {
-        this(id, customerName, deliveryAddress, items, OrderStatus.PENDING, LocalDateTime.now(), 0, null);
+        this(id, customerName, deliveryAddress, items, OrderStatus.PENDING, LocalDateTime.now(), 0, null, null, BigDecimal.ZERO, null, null);
     }
 
     public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items,
                  OrderStatus status, LocalDateTime createdAt) {
-        this(id, customerName, deliveryAddress, items, status, createdAt, 0, null);
+        this(id, customerName, deliveryAddress, items, status, createdAt, 0, null, null, BigDecimal.ZERO, null, null);
     }
 
     public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items,
                  OrderStatus status, LocalDateTime createdAt,
                  int estimatedWaitMinutes, LocalDateTime estimatedReadyAt) {
+        this(id, customerName, deliveryAddress, items, status, createdAt, estimatedWaitMinutes, estimatedReadyAt, null, BigDecimal.ZERO, null, null);
+    }
+
+    public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items,
+                 OrderStatus status, LocalDateTime createdAt,
+                 int estimatedWaitMinutes, LocalDateTime estimatedReadyAt,
+                 String appliedCouponCode, BigDecimal discountAmount) {
+        this(id, customerName, deliveryAddress, items, status, createdAt, estimatedWaitMinutes, estimatedReadyAt, appliedCouponCode, discountAmount, null, null);
+    }
+
+    public Order(UUID id, String customerName, String deliveryAddress, List<OrderItem> items,
+                 OrderStatus status, LocalDateTime createdAt,
+                 int estimatedWaitMinutes, LocalDateTime estimatedReadyAt,
+                 String appliedCouponCode, BigDecimal discountAmount,
+                 UUID assignedDriverId, String assignedDriverName) {
         if (customerName == null || customerName.isBlank()) {
             throw new InvalidOrderException("Customer name cannot be empty");
         }
@@ -48,7 +70,17 @@ public class Order {
         this.customerName = customerName.trim();
         this.deliveryAddress = deliveryAddress.trim();
         this.items = List.copyOf(items);
-        this.totalAmount = calculateTotal(this.items);
+        this.subtotalAmount = calculateTotal(this.items).setScale(2, RoundingMode.HALF_UP);
+        this.appliedCouponCode = (appliedCouponCode == null || appliedCouponCode.isBlank())
+                ? null
+                : appliedCouponCode.trim().toUpperCase(Locale.ROOT);
+        BigDecimal normalizedDiscount = Objects.requireNonNullElse(discountAmount, BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP);
+        if (normalizedDiscount.compareTo(BigDecimal.ZERO) < 0 || normalizedDiscount.compareTo(this.subtotalAmount) > 0) {
+            throw new InvalidOrderException("Discount amount must be between 0.00 and subtotal amount");
+        }
+        this.discountAmount = normalizedDiscount;
+        this.totalAmount = this.subtotalAmount.subtract(this.discountAmount).setScale(2, RoundingMode.HALF_UP);
         this.status = Objects.requireNonNullElse(status, OrderStatus.PENDING);
         this.createdAt = Objects.requireNonNullElseGet(createdAt, LocalDateTime::now);
         this.estimatedWaitMinutes = estimatedWaitMinutes;
@@ -56,6 +88,43 @@ public class Order {
                 estimatedReadyAt,
                 () -> this.createdAt.plusMinutes(this.estimatedWaitMinutes)
         );
+        this.assignedDriverId = assignedDriverId;
+        this.assignedDriverName = (assignedDriverName == null || assignedDriverName.isBlank())
+                ? null
+                : assignedDriverName.trim();
+    }
+
+    public void assignDriver(UUID driverId, String driverName) {
+        if (driverId == null) {
+            throw new InvalidOrderException("Driver ID cannot be null");
+        }
+        if (driverName == null || driverName.isBlank()) {
+            throw new InvalidOrderException("Driver name cannot be empty");
+        }
+        if (this.status != OrderStatus.READY) {
+            throw new InvalidOrderException("Only READY orders can be dispatched to a delivery driver");
+        }
+        if (this.assignedDriverId != null) {
+            throw new InvalidOrderException("Order is already assigned to driver '" + this.assignedDriverName + "'");
+        }
+        this.assignedDriverId = driverId;
+        this.assignedDriverName = driverName.trim();
+    }
+
+    public void applyDiscount(String couponCode, BigDecimal discountAmount) {
+        if (couponCode == null || couponCode.isBlank()) {
+            throw new InvalidOrderException("Coupon code cannot be empty when applying a discount");
+        }
+        if (discountAmount == null || discountAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new InvalidOrderException("Discount amount cannot be negative");
+        }
+        BigDecimal scaledDiscount = discountAmount.setScale(2, RoundingMode.HALF_UP);
+        if (scaledDiscount.compareTo(this.subtotalAmount) > 0) {
+            throw new InvalidOrderException("Discount amount cannot exceed order subtotal");
+        }
+        this.appliedCouponCode = couponCode.trim().toUpperCase(Locale.ROOT);
+        this.discountAmount = scaledDiscount;
+        this.totalAmount = this.subtotalAmount.subtract(this.discountAmount).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BigDecimal calculateTotal(List<OrderItem> items) {
@@ -128,6 +197,18 @@ public class Order {
         return items;
     }
 
+    public BigDecimal getSubtotalAmount() {
+        return subtotalAmount;
+    }
+
+    public String getAppliedCouponCode() {
+        return appliedCouponCode;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
     public BigDecimal getTotalAmount() {
         return totalAmount;
     }
@@ -146,5 +227,13 @@ public class Order {
 
     public LocalDateTime getEstimatedReadyAt() {
         return estimatedReadyAt;
+    }
+
+    public UUID getAssignedDriverId() {
+        return assignedDriverId;
+    }
+
+    public String getAssignedDriverName() {
+        return assignedDriverName;
     }
 }
